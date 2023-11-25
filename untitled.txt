@@ -1,0 +1,32 @@
+d_img = np.transpose(image_clip.cpu().squeeze().numpy(),(1,2,0))
+d_img = (d_img + (-1*np.min(d_img)))/np.max(d_img)
+cv2.imwrite("./test.jpg",d_img*255.0)
+
+
+
+
+(Pdb) prompt
+"A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. USER: <im_start><image><im_end>\nCan you segment people in this image ? ASSISTANT:"
+
+
+
+(Pdb) tokenizer.encode(prompt)
+[1, 319, 13563, 1546, 263, 12758, 5199, 322, 385, 23116, 21082, 20255, 29889, 450, 20255, 4076, 8444, 29892, 13173, 29892, 322, 1248, 568, 6089, 304, 278, 5199, 29915, 29879, 5155, 29889, 3148, 1001, 29901, 32001, 529, 3027, 29958, 32002, 1815, 366, 10768, 2305, 297, 445, 1967, 1577, 319, 1799, 9047, 13566, 29901]
+
+
+
+image_clip = [1, 3, 224, 224]
+input_ids = tensor([[    1,   319, 13563,  1546,   263, 12758,  5199,   322,   385, 23116,
+         21082, 20255, 29889,   450, 20255,  4076,  8444, 29892, 13173, 29892,
+           322,  1248,   568,  6089,   304,   278,  5199, 29915, 29879,  5155,
+         29889,  3148,  1001, 29901, 32001,  -200, 32002,  1815,   366, 10768,
+          2305,   297,   445,  1967,  1577,   319,  1799,  9047, 13566, 29901]],
+       device='cuda:0') ; len = 50
+
+hidden states = 1,311,5120
+
+
+
+
+
+tt = self.generate(images=images_clip,input_ids=input_ids,max_new_tokens=max_new_tokens,num_beams=1,output_hidden_states=True,return_dict_in_generate=True)
