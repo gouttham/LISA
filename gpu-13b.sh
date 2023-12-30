@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-amahdavi
-#SBATCH --job-name=gouttham-LISA
+#SBATCH --job-name=gouttham-LISA2
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:v100l:4
 #SBATCH --cpus-per-task=32
@@ -18,12 +18,15 @@ cp $SLURM_TMPDIR/dataset/vlpart/paco/annotations/paco_lvis_v1/* $SLURM_TMPDIR/da
 module load cuda/11.0
 module use cuda/11.0
 
+ls $SLURM_TMPDIR/dataset/
+
 deepspeed --master_port=24999 train_ds.py \
-  --version=./mbin/llava-out/ \
+  --version=./mbin/test/LLaVA-7B-Lightening-v1-1/ \
   --dataset_dir=$SLURM_TMPDIR/dataset/ \
   --vision_pretrained=./mbin/sam_vit_h_4b8939.pth \
   --dataset="sem_seg||refer_seg||vqa||reason_seg" \
   --sample_rates="9,3,3,1" \
-  --exp_name="lisa-7b-mine-8gpu"
+  --exp_name="lisa-13b-mine-14days" \
+  --epochs='20'
 
 echo "Job finished with exit code $? at: `date`"

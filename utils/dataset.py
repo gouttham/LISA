@@ -20,6 +20,7 @@ from .data_processing import get_mask_from_json
 from .reason_seg_dataset import ReasonSegDataset
 from .refer import REFER
 from .refer_seg_dataset import ReferSegDataset
+from .cd_dataset import CD_Dataset
 from .sem_seg_dataset import SemSegDataset
 from .utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                     DEFAULT_IMAGE_TOKEN)
@@ -176,10 +177,11 @@ class HybridDataset(torch.utils.data.Dataset):
         image_size: int = 224,
         num_classes_per_sample: int = 3,
         exclude_val=False,
-        dataset="sem_seg||refer_seg||vqa||reason_seg",
+        dataset="sem_seg||refer_seg||vqa||reason_seg||cd_dataset",
         sample_rate=[9, 3, 3, 1],
         sem_seg_data="ade20k||cocostuff||partimagenet||pascal_part||paco_lvis||mapillary",
         refer_seg_data="refclef||refcoco||refcoco+||refcocog",
+        cd_data="xbd",
         vqa_data="llava_instruct_150k",
         reason_seg_data="ReasonSeg|train",
         explanatory=0.1,
@@ -201,7 +203,21 @@ class HybridDataset(torch.utils.data.Dataset):
 
         self.all_datasets = []
         for dataset in self.datasets:
-            if dataset == "sem_seg":
+            if dataset == "cd_dataset":
+                self.all_datasets.append(
+                    CD_Dataset(
+                        base_image_dir,
+                        tokenizer,
+                        vision_tower,
+                        samples_per_epoch,
+                        precision,
+                        image_size,
+                        num_classes_per_sample,
+                        exclude_val,
+                        cd_data,
+                    )
+                )
+            elif dataset == "sem_seg":
                 self.all_datasets.append(
                     SemSegDataset(
                         base_image_dir,

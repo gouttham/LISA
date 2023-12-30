@@ -1,0 +1,2 @@
+tail -f slurm-20664111.out lisa-13b-mine
+tail -f slurm-20941101.out lisa-13b-mine-14days

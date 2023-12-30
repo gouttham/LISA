@@ -1,1 +1,3 @@
 CUDA_VISIBLE_DEVICES=0 python chat.py --version='./mbin/xinlai/LISA-13B-llama2-v1' --precision='fp16' --load_in_4bit
+
+CUDA_VISIBLE_DEVICES=0 python chat.py --version='./runs/lisa-7b-mine-8gpu/export/' --precision='fp16' --load_in_4bit

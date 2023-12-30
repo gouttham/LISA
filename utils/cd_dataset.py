@@ -2,34 +2,16 @@ import glob
 import json
 import os
 import random
-
+import sys
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from pycocotools.coco import COCO
 from transformers import CLIPImageProcessor
-
-# from model.llava import conversation as conversation_lib
-# from model.segment_anything.utils.transforms import ResizeLongestSide
-#
-# from .utils import ANSWER_LIST, SHORT_QUESTION_LIST
-
-# *************************************** JUST FOR TESTING **************************************
-# this is for importing conversation and resize longest side and the lists (instead of the past 2 lines)
-import sys
-# caution: path[0] is reserved for script path (or '' in REPL)
-sys.path.insert(1, '/Users/zareef/Documents/Code/LISA/model/llava')
-sys.path.insert(2, '/Users/zareef/Documents/Code/LISA/model/segment_anything/utils')
-sys.path.insert(3, '/Users/zareef/Documents/Code/LISA/utils')
-
-import conversation as conversation_lib
-from conversation import Conversation, SeparatorStyle
-from transforms import ResizeLongestSide
-from utils import ANSWER_LIST, SHORT_QUESTION_LIST
-
-# ************************************** delete when done **************************************
+from model.llava import conversation as conversation_lib
+from model.segment_anything.utils.transforms import ResizeLongestSide
+from .utils import ANSWER_LIST, SHORT_QUESTION_LIST
 
 def init_xbd_pre(base_image_dir):
     with open("utils/cd_classes/xbd_classes_pre.json", "r") as f:
@@ -202,7 +184,9 @@ class CD_Dataset(torch.utils.data.Dataset):
             class_ids.append(class_id)
 
         conversations = []
-        conv = conversation_lib.get_default_conv_template("vicuna")
+        conv = conversation_lib.default_conversation.copy()
+        # conv = conversation_lib.get_default_conv_template("vicuna")
+
 
         i = 0
         while i < len(questions):
