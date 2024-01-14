@@ -186,6 +186,13 @@ def main(args):
     image_paths = load_imgs(args.data_dir)
 
     for image_path in image_paths:
+        save_path = "{}/{}_mask_{}.jpg".format(
+            args.vis_save_path, image_path.split("/")[-1].split(".")[0], i
+        )
+
+        if os.path.isfile(save_path):
+            continue
+
         mask = None
 
         lower_case_path = image_path.lower()
