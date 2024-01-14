@@ -187,7 +187,7 @@ def main(args):
 
     for image_path in image_paths:
         save_path = "{}/{}_mask_{}.jpg".format(
-            args.vis_save_path, image_path.split("/")[-1].split(".")[0], i
+            args.vis_save_path, image_path.split("/")[-1].split(".")[0], 0
         )
 
         if os.path.isfile(save_path):
