@@ -410,6 +410,48 @@ def init_cd_dset_levircdplus(base_image_dir):
     return levircd_classes, image_1_fns, image_2_fns, label_fns
 
 
+def init_cd_dset_3dcd(base_image_dir):
+    #   REQUIRED: directory structure 
+    #
+    #   base dir
+    #   |
+    #   |_____ 3DCD
+    #        |___ train
+    #           |____ 2010
+    #           |____ 2017
+    #           |____ 2D
+    #                   
+    with open("utils/cd_classes/3dcd_classes.json", "r") as f:
+        cd_classes = json.load(f)
+    cd_classes = np.array(cd_classes)
+
+    image_1_fns = sorted(
+        os.listdir(os.path.join(base_image_dir, "3DCD", "train", "2010"))
+    )
+
+    image_1_fns = [fn for fn in image_1_fns if fn.endswith(".tif")]
+
+    image_1_fns = [
+            os.path.join(base_image_dir, "3DCD", "train", "2010", fn) 
+            for fn in image_1_fns
+        ]
+
+    image_2_fns = [fn.replace("2010", "2017") for fn in image_1_fns]
+    label_fns = [fn.replace("2010", "2D") for fn in image_1_fns]
+
+    for i in range(len(image_1_fns)):
+        print(image_1_fns[i])
+        assert(os.path.isfile(image_1_fns[i]))
+        assert(os.path.isfile(image_2_fns[i]))
+        assert(os.path.isfile(label_fns[i]))
+        assert(image_2_fns[i].replace("2017", "2010") == image_1_fns[i])
+        assert(label_fns[i].replace("2D", "2010") == image_1_fns[i])
+
+    print("3dcd images = {}, 3dcd targets = {}, 3dcd classes = {}".format(len(image_1_fns), len(label_fns), cd_classes))
+    print()
+    return cd_classes, image_1_fns, image_2_fns, label_fns
+
+
 class Contrastive_CD_Dataset(torch.utils.data.Dataset):
     pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
     pixel_std = torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
@@ -426,7 +468,7 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         image_size: int = 224,
         num_classes_per_sample: int = 5,
         exclude_val=False,
-        sem_seg_data="xbd||s2looking||levircd||levircdplus",
+        sem_seg_data="xbd||s2looking||levircd||levircdplus||3dcd",
         debug=False,
     ):
         self.exclude_val = exclude_val
@@ -472,10 +514,16 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         return x
 
 
-    def load_pre_post_img(self, paths, idx):
+    def load_pre_post_img(self, paths, idx, ds):
         image_path = paths[idx]
-        img_bgr = cv2.imread(image_path)
-        image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_bgr, image = None, None
+        if ds != "3dcd":
+            img_bgr = cv2.imread(image_path)
+            image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        else:
+            # Open the TIFF image
+            tif_image = Image.open(image_path)
+            image = np.array(tif_image.convert("RGB"))
         
         # preprocess image for clip
         image_clip = None
@@ -500,9 +548,11 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         idx = random.randint(0, len(pre_images) - 1)
 
         # loading in the pre and post images
-        pre_image_path, pre_image, pre_image_clip, pre_resize = self.load_pre_post_img(pre_images, idx)
-        post_image_path, post_image, post_image_clip, post_resize = self.load_pre_post_img(post_images, idx)
+        pre_image_path, pre_image, pre_image_clip, pre_resize = self.load_pre_post_img(pre_images, idx, ds)
+        post_image_path, post_image, post_image_clip, post_resize = self.load_pre_post_img(post_images, idx, ds)
 
+        if self.debug:
+            print(ds, pre_image_path)
         # Loading in the labels
         label = None
         if ds == "s2looking":
@@ -513,11 +563,18 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
             label = np.zeros(label_new.shape).astype(int)
             label[label_new == 255] = 1
             label[label_destroyed == 255] = 2
+        elif ds == "3dcd":
+            label_path = labels[idx]
+            label_tif = Image.open(label_path)
+            label_tif = np.array(label_tif.convert("RGB"))
+            label = np.zeros(label_tif[:,:,0].shape).astype(int)
+            for i in range(3):
+                label[label_tif[:,:,i] == 1] = 1
         elif ds == "levircd" or ds == "levircdplus":
             label_path = labels[idx]
             label = Image.open(label_path)
             label = np.array(label)
-            label[label == 255] = 1
+            label[label != 0] = 1
         else:
             label_path = labels[idx]
             label = Image.open(label_path)
@@ -586,7 +643,7 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         )
     
 
-def _debug_only_visualize_cd_dataset(cd):
+def _debug_only_visualize_cd_dataset(cd, show_img=True):
     data = cd[0]
     pre_image_path, post_image_path = data[0], data[1]
     pre_image, post_image = data[2], data[3]
@@ -607,15 +664,50 @@ def _debug_only_visualize_cd_dataset(cd):
     np_preimg = pre_image.permute(1, 2, 0).numpy()
     np_preimg = 255 * (np_preimg - np.min(np_preimg))/(np.max(np_preimg) - np.min(np_preimg))
     np_preimg = np_preimg.astype(np.uint8)
-    cv2.imshow("pre-image", np_preimg)
-    cv2.waitKey(0)
+    if show_img:
+        cv2.imshow("pre-image", np_preimg)
+        cv2.waitKey(0)
 
     np_postimg = post_image.permute(1, 2, 0).numpy()
     np_postimg = 255 * (np_postimg - np.min(np_postimg))/(np.max(np_postimg) - np.min(np_postimg))
     np_postimg = np_postimg.astype(np.uint8)
-    cv2.imshow("pre-image", np_postimg)
-    cv2.waitKey(0)
+    if show_img:
+        cv2.imshow("pre-image", np_postimg)
+        cv2.waitKey(0)
 
+    print("Showing masks ...")
+    for i in range(len(masks)):
+        ith_mask = np.array(masks[i]).astype(np.uint8) * 255
+        if show_img:
+            cv2.imshow("{}th mask".format(i), ith_mask)
+            cv2.waitKey(0)
+
+    print("===============================================================================")
+
+
+def _debug_only_visualize_non_cd_dataset(cd):
+    data = cd[0]
+    image_path = data[0]
+    image = data[1]
+    image_clip = data[2]
+    conversations = data[3]
+    masks = data[4]
+    label = data[5]
+    resize = data[6]
+    questions = data[7]
+    sampled_classes = data[8]
+
+    print("================================ DEBUG OUTPUT ================================")
+
+    print("Image: {}".format(image_path))
+    print("Sampled Classes in the label: {}".format(sampled_classes))
+    print("Conversations: \n", conversations)
+    print("Showing images ...")
+    np_preimg = image.permute(1, 2, 0).numpy()
+    np_preimg = 255 * (np_preimg - np.min(np_preimg))/(np.max(np_preimg) - np.min(np_preimg))
+    np_preimg = np_preimg.astype(np.uint8)
+    cv2.imshow("pre-image", np_preimg)
+    cv2.waitKey(0)
     print("Showing masks ...")
     for i in range(len(masks)):
         ith_mask = np.array(masks[i]).astype(np.uint8) * 255
@@ -625,7 +717,15 @@ def _debug_only_visualize_cd_dataset(cd):
     print("===============================================================================")
 
 
+def _debug_only_stress_test():
+    while(True):
+        cd = Contrastive_CD_Dataset("../cd-datasets", None, None, debug=True)
+        _debug_only_visualize_cd_dataset(cd, show_img=False)
+
+
 if __name__ == '__main__':
-    ds = "levircdplus"
-    cd = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data=ds, debug=True)
+    # _debug_only_stress_test()
+    cd = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data="levircd", debug=True)
     _debug_only_visualize_cd_dataset(cd)
+    # xbd = CD_Dataset(sys.argv[1], None, None, sem_seg_data="ade20k")
+    # _debug_only_visualize_non_cd_dataset(xbd)  
