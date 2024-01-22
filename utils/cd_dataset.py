@@ -13,6 +13,22 @@ from model.llava import conversation as conversation_lib
 from model.segment_anything.utils.transforms import ResizeLongestSide
 from .utils import ANSWER_LIST, SHORT_QUESTION_LIST
 
+# # *************************************** JUST FOR TESTING **************************************
+# # this is for importing conversation and resize longest side and the lists (instead of the past 2 lines)
+# import sys
+# # caution: path[0] is reserved for script path (or '' in REPL)
+# sys.path.insert(1, '/Users/zareef/Documents/Code/LISA/model/llava')
+# sys.path.insert(2, '/Users/zareef/Documents/Code/LISA/model/segment_anything/utils')
+# sys.path.insert(3, '/Users/zareef/Documents/Code/LISA/utils')
+
+# import conversation as conversation_lib
+# from conversation import Conversation, SeparatorStyle
+# from transforms import ResizeLongestSide
+# from utils import ANSWER_LIST, SHORT_QUESTION_LIST
+
+# # ************************************** delete when done **************************************
+
+
 def init_xbd_pre(base_image_dir):
     with open("utils/cd_classes/xbd_classes_pre.json", "r") as f:
         xbd_classes = json.load(f)
@@ -266,6 +282,134 @@ def init_cd_dset_xbd(base_image_dir):
     return xbd_classes, xbd_images_pre, xbd_images_post, xbd_labels
 
 
+def init_cd_dset_s2looking(base_image_dir):
+    #   REQUIRED: directory structure 
+    #
+    #   base dir
+    #   |
+    #   |_____ S2Looking
+    #        |___ train
+    #           |____ Image1
+    #           |____ Image2
+    #           |____ label1
+    #           |____ label2
+    #                   
+    with open("utils/cd_classes/s2looking_classes.json", "r") as f:
+        s2_classes = json.load(f)
+    s2_classes = np.array(s2_classes)
+
+    image_1_fns = sorted(
+        os.listdir(os.path.join(base_image_dir, "S2Looking", "train", "Image1"))
+    )
+
+    image_1_fns = [
+            os.path.join(base_image_dir, "S2Looking", "train", "Image1", fn) 
+            for fn in image_1_fns
+        ]
+
+    image_2_fns = [fn.replace("Image1", "Image2") for fn in image_1_fns]
+    label_1_fns = [fn.replace("Image1", "label1") for fn in image_1_fns]
+    label_2_fns = [fn.replace("Image1", "label2") for fn in image_1_fns]
+
+    for i in range(len(image_1_fns)):
+        print(image_1_fns[i])
+        assert(os.path.isfile(image_1_fns[i]))
+        assert(os.path.isfile(image_2_fns[i]))
+        assert(os.path.isfile(label_1_fns[i]))
+        assert(os.path.isfile(label_2_fns[i]))
+        assert(image_2_fns[i].replace("Image2", "Image1") == image_1_fns[i])
+        assert(label_1_fns[i].replace("label1", "Image1") == image_1_fns[i])
+        assert(label_2_fns[i].replace("label2", "Image1") == image_1_fns[i])
+
+    print("s2 images = {}, s2 targets = {}, s2 classes = {}".format(len(image_1_fns), len(label_1_fns), s2_classes))
+    print()
+    return s2_classes, image_1_fns, image_2_fns, (label_1_fns, label_2_fns)
+
+
+def init_cd_dset_levircd(base_image_dir):
+    #   REQUIRED: directory structure 
+    #
+    #   base dir
+    #   |
+    #   |_____ levir-cd
+    #        |___ train
+    #           |____ A
+    #           |____ B
+    #           |____ label
+    #                   
+    with open("utils/cd_classes/levircd_classes.json", "r") as f:
+        levircd_classes = json.load(f)
+    levircd_classes = np.array(levircd_classes)
+
+    image_1_fns = sorted(
+        os.listdir(os.path.join(base_image_dir, "levir-cd", "train", "A"))
+    )
+
+    image_1_fns = [fn for fn in image_1_fns if fn.endswith(".png")]
+
+    image_1_fns = [
+            os.path.join(base_image_dir, "levir-cd", "train", "A", fn) 
+            for fn in image_1_fns
+        ]
+
+    image_2_fns = [fn.replace("A", "B") for fn in image_1_fns]
+    label_fns = [fn.replace("A", "label") for fn in image_1_fns]
+
+    for i in range(len(image_1_fns)):
+        print(image_1_fns[i])
+        assert(os.path.isfile(image_1_fns[i]))
+        assert(os.path.isfile(image_2_fns[i]))
+        assert(os.path.isfile(label_fns[i]))
+        assert(image_2_fns[i].replace("B", "A") == image_1_fns[i])
+        assert(label_fns[i].replace("label", "A") == image_1_fns[i])
+
+    print("levir cd images = {}, levir cd targets = {}, levir cd classes = {}".format(len(image_1_fns), len(label_fns), levircd_classes))
+    print()
+    return levircd_classes, image_1_fns, image_2_fns, label_fns
+
+
+def init_cd_dset_levircdplus(base_image_dir):
+    #   REQUIRED: directory structure 
+    #
+    #   base dir
+    #   |
+    #   |_____ LEVIR-CD+
+    #        |___ train
+    #           |____ A
+    #           |____ B
+    #           |____ label
+    #                   
+    with open("utils/cd_classes/levircd_classes.json", "r") as f:
+        levircd_classes = json.load(f)
+    levircd_classes = np.array(levircd_classes)
+
+    image_1_fns = sorted(
+        os.listdir(os.path.join(base_image_dir, "LEVIR-CD+", "train", "A"))
+    )
+
+    image_1_fns = [fn for fn in image_1_fns if fn.endswith(".png")]
+
+    image_1_fns = [
+            os.path.join(base_image_dir, "LEVIR-CD+", "train", "A", fn) 
+            for fn in image_1_fns
+        ]
+
+    image_2_fns = [fn.replace("A", "B") for fn in image_1_fns]
+    label_fns = [fn.replace("A", "label") for fn in image_1_fns]
+
+    for i in range(len(image_1_fns)):
+        print(image_1_fns[i])
+        assert(os.path.isfile(image_1_fns[i]))
+        assert(os.path.isfile(image_2_fns[i]))
+        assert(os.path.isfile(label_fns[i]))
+        assert(image_2_fns[i].replace("B", "A") == image_1_fns[i])
+        assert(label_fns[i].replace("label", "A") == image_1_fns[i])
+
+    print("levir cd+ images = {}, levir cd+ targets = {}, levir cd+ classes = {}".format(len(image_1_fns), len(label_fns), levircd_classes))
+    print()
+    return levircd_classes, image_1_fns, image_2_fns, label_fns
+
+
 class Contrastive_CD_Dataset(torch.utils.data.Dataset):
     pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
     pixel_std = torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
@@ -282,18 +426,21 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         image_size: int = 224,
         num_classes_per_sample: int = 5,
         exclude_val=False,
-        sem_seg_data="xbd||ida-bd||whu-cd||levir-cd",
+        sem_seg_data="xbd||s2looking||levircd||levircdplus",
+        debug=False,
     ):
         self.exclude_val = exclude_val
         self.samples_per_epoch = samples_per_epoch
         self.num_classes_per_sample = num_classes_per_sample
+        self.debug = debug
 
         self.base_image_dir = base_image_dir
         self.image_size = image_size
         self.tokenizer = tokenizer
         self.precision = precision
         self.transform = ResizeLongestSide(image_size)
-        self.clip_image_processor = CLIPImageProcessor.from_pretrained(vision_tower)
+        if not self.debug:
+            self.clip_image_processor = CLIPImageProcessor.from_pretrained(vision_tower)
 
         self.short_question_list = SHORT_QUESTION_LIST
         self.answer_list = ANSWER_LIST
@@ -327,15 +474,15 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
 
     def load_pre_post_img(self, paths, idx):
         image_path = paths[idx]
-        print(image_path)
-
         img_bgr = cv2.imread(image_path)
         image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         
         # preprocess image for clip
-        image_clip = self.clip_image_processor.preprocess(
-            image, return_tensors="pt"
-        )["pixel_values"][0]
+        image_clip = None
+        if not self.debug:
+            image_clip = self.clip_image_processor.preprocess(
+                image, return_tensors="pt"
+            )["pixel_values"][0]
         image = self.transform.apply_image(image)  # preprocess image for sam
         resize = image.shape[:2]
         image = self.preprocess(torch.from_numpy(image).permute(2, 0, 1).contiguous())
@@ -357,9 +504,25 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         post_image_path, post_image, post_image_clip, post_resize = self.load_pre_post_img(post_images, idx)
 
         # Loading in the labels
-        label_path = labels[idx]
-        label = Image.open(label_path)
-        label = np.array(label)
+        label = None
+        if ds == "s2looking":
+            # as new building masks are blue
+            label_new = np.array(Image.open(labels[0][idx]))[:,:,2]
+            # as new building masks are red
+            label_destroyed = np.array(Image.open(labels[1][idx]))[:,:,0]
+            label = np.zeros(label_new.shape).astype(int)
+            label[label_new == 255] = 1
+            label[label_destroyed == 255] = 2
+        elif ds == "levircd" or ds == "levircdplus":
+            label_path = labels[idx]
+            label = Image.open(label_path)
+            label = np.array(label)
+            label[label == 255] = 1
+        else:
+            label_path = labels[idx]
+            label = Image.open(label_path)
+            label = np.array(label)
+        
         unique_label = np.unique(label).tolist()
         if 255 in unique_label:
             unique_label.remove(255)
@@ -377,7 +540,6 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         questions = []
         answers = []
         class_ids = []
-        print(sampled_classes)
 
         for sampled_cls in sampled_classes:
             text = sampled_cls
@@ -392,8 +554,10 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
             class_ids.append(class_id)
 
         conversations = []
-        conv = conversation_lib.default_conversation.copy()
-        # conv = conversation_lib.get_default_conv_template("vicuna")
+        if not self.debug:
+            conv = conversation_lib.default_conversation.copy()
+        else:
+            conv = conversation_lib.get_default_conv_template("vicuna")
 
         i = 0
         while i < len(questions):
@@ -409,20 +573,59 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
             masks.append(label == class_id)
         masks = torch.stack(masks, dim=0)
 
-        print(conversations)
         return (
-            (pre_image_path, post_image_path),
-            (pre_image, post_image),
-            (pre_image_clip, post_image_clip),
+            pre_image_path, post_image_path,
+            pre_image, post_image,
+            pre_image_clip, post_image_clip,
             conversations,
             masks,
             label,
-            (pre_resize, post_resize),
+            pre_resize, post_resize,
             questions,
             sampled_classes,
         )
+    
+
+def _debug_only_visualize_cd_dataset(cd):
+    data = cd[0]
+    pre_image_path, post_image_path = data[0], data[1]
+    pre_image, post_image = data[2], data[3]
+    pre_image_clip, post_image_clip = data[4], data[5]
+    conversations = data[6]
+    masks = data[7]
+    label = data[8]
+    pre_resize, post_resize = data[9], data[10]
+    questions = data[11]
+    sampled_classes = data[12]
+
+    print("================================ DEBUG OUTPUT ================================")
+
+    print("Pre Image: {}, Post Image: {}".format(pre_image_path, post_image_path))
+    print("Sampled Classes in the label: {}".format(sampled_classes))
+    print("Conversations: \n", conversations)
+    print("Showing images ...")
+    np_preimg = pre_image.permute(1, 2, 0).numpy()
+    np_preimg = 255 * (np_preimg - np.min(np_preimg))/(np.max(np_preimg) - np.min(np_preimg))
+    np_preimg = np_preimg.astype(np.uint8)
+    cv2.imshow("pre-image", np_preimg)
+    cv2.waitKey(0)
+
+    np_postimg = post_image.permute(1, 2, 0).numpy()
+    np_postimg = 255 * (np_postimg - np.min(np_postimg))/(np.max(np_postimg) - np.min(np_postimg))
+    np_postimg = np_postimg.astype(np.uint8)
+    cv2.imshow("pre-image", np_postimg)
+    cv2.waitKey(0)
+
+    print("Showing masks ...")
+    for i in range(len(masks)):
+        ith_mask = np.array(masks[i]).astype(np.uint8) * 255
+        cv2.imshow("{}th mask".format(i), ith_mask)
+        cv2.waitKey(0)
+
+    print("===============================================================================")
 
 
 if __name__ == '__main__':
-    xbd = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data="xbd")
-    data = xbd[0]
+    ds = "levircdplus"
+    cd = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data=ds, debug=True)
+    _debug_only_visualize_cd_dataset(cd)
