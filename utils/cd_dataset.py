@@ -234,7 +234,7 @@ class CD_Dataset(torch.utils.data.Dataset):
         )
 
 
-def init_cd_dset_xbd(base_image_dir):
+def init_cd_dset_xbd(base_image_dir, val=False, val_split=0.8):
     #   REQUIRED: directory structure 
     #
     #   base dir
@@ -250,6 +250,15 @@ def init_cd_dset_xbd(base_image_dir):
     image_ids = sorted(
         os.listdir(os.path.join(base_image_dir, "xbd", "images"))
     )
+
+    split_idx = int(val_split*len(image_ids))
+    assert(split_idx < len(image_ids))
+    if val:
+        image_ids = image_ids[split_idx:]
+    else:
+        image_ids = image_ids[:split_idx]
+
+
     xbd_image_ids_pre = []
     for x in image_ids:
         if x.endswith("pre_disaster.png"):
@@ -282,7 +291,7 @@ def init_cd_dset_xbd(base_image_dir):
     return xbd_classes, xbd_images_pre, xbd_images_post, xbd_labels
 
 
-def init_cd_dset_s2looking(base_image_dir):
+def init_cd_dset_s2looking(base_image_dir, val=False, val_split=0.8):
     #   REQUIRED: directory structure 
     #
     #   base dir
@@ -306,6 +315,13 @@ def init_cd_dset_s2looking(base_image_dir):
             os.path.join(base_image_dir, "S2Looking", "train", "Image1", fn) 
             for fn in image_1_fns
         ]
+    
+    split_idx = int(val_split*len(image_1_fns))
+    assert(split_idx < len(image_1_fns))
+    if val:
+        image_1_fns = image_1_fns[split_idx:]
+    else:
+        image_1_fns = image_1_fns[:split_idx]
 
     image_2_fns = [fn.replace("Image1", "Image2") for fn in image_1_fns]
     label_1_fns = [fn.replace("Image1", "label1") for fn in image_1_fns]
@@ -326,7 +342,7 @@ def init_cd_dset_s2looking(base_image_dir):
     return s2_classes, image_1_fns, image_2_fns, (label_1_fns, label_2_fns)
 
 
-def init_cd_dset_levircd(base_image_dir):
+def init_cd_dset_levircd(base_image_dir, val=False, val_split=0.8):
     #   REQUIRED: directory structure 
     #
     #   base dir
@@ -351,6 +367,14 @@ def init_cd_dset_levircd(base_image_dir):
             os.path.join(base_image_dir, "levir-cd", "train", "A", fn) 
             for fn in image_1_fns
         ]
+    
+    split_idx = int(val_split*len(image_1_fns))
+    assert(split_idx < len(image_1_fns))
+
+    if val:
+        image_1_fns = image_1_fns[split_idx:]
+    else:
+        image_1_fns = image_1_fns[:split_idx]
 
     image_2_fns = [fn.replace("A", "B") for fn in image_1_fns]
     label_fns = [fn.replace("A", "label") for fn in image_1_fns]
@@ -368,7 +392,7 @@ def init_cd_dset_levircd(base_image_dir):
     return levircd_classes, image_1_fns, image_2_fns, label_fns
 
 
-def init_cd_dset_levircdplus(base_image_dir):
+def init_cd_dset_levircdplus(base_image_dir, val=False, val_split=0.8):
     #   REQUIRED: directory structure 
     #
     #   base dir
@@ -393,6 +417,14 @@ def init_cd_dset_levircdplus(base_image_dir):
             os.path.join(base_image_dir, "LEVIR-CD+", "train", "A", fn) 
             for fn in image_1_fns
         ]
+    
+    split_idx = int(val_split*len(image_1_fns))
+    assert(split_idx < len(image_1_fns))
+
+    if val:
+        image_1_fns = image_1_fns[split_idx:]
+    else:
+        image_1_fns = image_1_fns[:split_idx]
 
     image_2_fns = [fn.replace("A", "B") for fn in image_1_fns]
     label_fns = [fn.replace("A", "label") for fn in image_1_fns]
@@ -410,7 +442,7 @@ def init_cd_dset_levircdplus(base_image_dir):
     return levircd_classes, image_1_fns, image_2_fns, label_fns
 
 
-def init_cd_dset_3dcd(base_image_dir):
+def init_cd_dset_3dcd(base_image_dir, val=False, val_split=0.8):
     #   REQUIRED: directory structure 
     #
     #   base dir
@@ -435,6 +467,14 @@ def init_cd_dset_3dcd(base_image_dir):
             os.path.join(base_image_dir, "3DCD", "train", "2010", fn) 
             for fn in image_1_fns
         ]
+    
+    split_idx = int(val_split*len(image_1_fns))
+    assert(split_idx < len(image_1_fns))
+
+    if val:
+        image_1_fns = image_1_fns[split_idx:]
+    else:
+        image_1_fns = image_1_fns[:split_idx]
 
     image_2_fns = [fn.replace("2010", "2017") for fn in image_1_fns]
     label_fns = [fn.replace("2010", "2D") for fn in image_1_fns]
@@ -467,11 +507,13 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         precision: str = "fp32",
         image_size: int = 224,
         num_classes_per_sample: int = 5,
-        exclude_val=False,
+        val=False, 
+        val_split=0.8,
         sem_seg_data="xbd||s2looking||levircd||levircdplus||3dcd",
         debug=False,
     ):
-        self.exclude_val = exclude_val
+        self.val = val
+        self.val_split = val_split
         self.samples_per_epoch = samples_per_epoch
         self.num_classes_per_sample = num_classes_per_sample
         self.debug = debug
@@ -491,15 +533,19 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         self.data2classes = {}
 
         self.sem_seg_datas = sem_seg_data.split("||")
+        self.ds_len = 0
         # self.sem_seg_datas = self.sem_seg_datas.replace("xbd", "xbd_pre||xbd_post").split("||")
         print(self.sem_seg_datas)
         for ds in self.sem_seg_datas:
-            classes, pre_images, post_images, labels = eval("init_cd_dset_{}".format(ds))(base_image_dir)
+            classes, pre_images, post_images, labels = eval("init_cd_dset_{}".format(ds))(base_image_dir, 
+                                                                                          val=self.val,
+                                                                                          val_split= self.val_split)
             self.data2list[ds] = (pre_images, post_images, labels)
             self.data2classes[ds] = classes
+            self.ds_len += len(pre_images)
 
     def __len__(self):
-        return self.samples_per_epoch
+        return self.ds_len
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize pixel values and pad to a square input."""
@@ -725,7 +771,9 @@ def _debug_only_stress_test():
 
 if __name__ == '__main__':
     # _debug_only_stress_test()
-    cd = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data="levircd", debug=True)
-    _debug_only_visualize_cd_dataset(cd)
+    cd_val = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data="xbd||s2looking||levircd||levircd", debug=True, val=True, val_split=0.8)
+    cd_tr = Contrastive_CD_Dataset(sys.argv[1], None, None, sem_seg_data="xbd||s2looking||levircd||levircd", debug=True, val=False, val_split=0.8)
+    print("training set = ", len(cd_tr), "val set = ", len(cd_val))
+    # _debug_only_visualize_cd_dataset(cd)
     # xbd = CD_Dataset(sys.argv[1], None, None, sem_seg_data="ade20k")
     # _debug_only_visualize_non_cd_dataset(xbd)  
