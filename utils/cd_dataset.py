@@ -677,16 +677,30 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         masks = torch.stack(masks, dim=0)
 
         return (
-            pre_image_path, post_image_path,
-            pre_image, post_image,
-            pre_image_clip, post_image_clip,
+            (pre_image_path, post_image_path),
+            (pre_image, post_image),
+            (pre_image_clip, post_image_clip),
             conversations,
             masks,
             label,
-            pre_resize, post_resize,
+            post_resize,
             questions,
-            sampled_classes,
+            sampled_classes
         )
+        # (pre_resize, post_resize),
+        # inference = True
+        # return (
+        #     (pre_image_path, post_image_path),
+        #     (pre_image, post_image),
+        #     (pre_image_clip, post_image_clip),
+        #     conversations,
+        #     masks,
+        #     label,
+        #     post_resize,
+        #     None,
+        #     None,
+        #     inference,
+        # )
     
 
 def _debug_only_visualize_cd_dataset(cd, show_img=True):

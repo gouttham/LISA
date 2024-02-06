@@ -12,6 +12,7 @@ from .llava.model.language_model.llava_llama import (LlavaLlamaForCausalLM,
                                                      LlavaLlamaModel)
 from .segment_anything import build_sam_vit_h
 import pickle as pk
+from .attention_utils import cross_attention
 
 def dice_loss(
     inputs: torch.Tensor,
@@ -148,6 +149,13 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
         # Initialize weights and apply final processing
         self.post_init()
 
+        try:
+            self.constrative = kwargs.pop("constrative")
+        except:
+            print("No Constrative")
+            self.constrative = False
+        self.cross_attn = cross_attention()
+
     def get_visual_embs(self, pixel_values: torch.FloatTensor):
         with torch.no_grad():
             image_embeddings_list = []
@@ -180,7 +188,19 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
         inference: bool = False,
         **kwargs,
     ):
-        image_embeddings = self.get_visual_embs(images)
+
+        if self.constrative:
+            images_clip = images_clip[:, 1, :]
+            images1 = images[:, 0, :]
+            images2 = images[:, 1, :]
+            image_embeddings1 = self.get_visual_embs(images1)
+            image_embeddings2 = self.get_visual_embs(images2)
+            image_embeddings = self.cross_attn(image_embeddings1, image_embeddings2)
+            # print(image_embeddings.shape)
+            # print(torch.max(image_embeddings))
+            # print(torch.min(image_embeddings))
+        else:
+            image_embeddings = self.get_visual_embs(images)
         batch_size = image_embeddings.shape[0]
         assert batch_size == len(offset) - 1
 
@@ -201,6 +221,9 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
         if inference:
             n_batch = 1
             length = input_ids.shape[0]
+            # print('``````````````````````````````````````````````````````````````````')
+            # print(images_clip.shape)
+            # print('``````````````````````````````````````````````````````````````````')
             assert images_clip.shape[0] == 1
             images_clip_extend = images_clip.expand(length, -1, -1, -1).contiguous()
 
@@ -365,14 +388,16 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
             
             output_hidden_states = outputs.hidden_states[-1]
             output_ids = outputs.sequences
+            try:
+                opfile =  open(b"output_hidden_states.obj","wb")
+                pk.dump(output_hidden_states.cpu().numpy(),opfile)
+                opfile.close()
 
-            opfile =  open(b"output_hidden_states.obj","wb")
-            pk.dump(output_hidden_states.cpu().numpy(),opfile)
-            opfile.close()
-
-            opfile2 = open(b"output_ids.obj","wb")
-            pk.dump(output_ids.cpu().numpy(),opfile2)
-            opfile2.close()
+                opfile2 = open(b"output_ids.obj","wb")
+                pk.dump(output_ids.cpu().numpy(),opfile2)
+                opfile2.close()
+            except:
+                print("dump error")
     
             seg_token_mask = output_ids[:, 1:] == self.seg_token_idx
             # hack for IMAGE_TOKEN_INDEX (we suppose that there is only one image, and it is in the front)

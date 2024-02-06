@@ -313,8 +313,7 @@ class cross_attention(torch.nn.Module):
         self.pos_embedding_1 = nn.Parameter(torch.randn(1, self.token_len * 2, dim_1))
         self.pos_embedding_2 = nn.Parameter(torch.randn(1, self.token_len * 2, dim_2))
         self.pos_embedding_3 = nn.Parameter(torch.randn(1, self.token_len * 2, dim_3))
-
-        self.pos_embedding_layers = [self.pos_embedding_1, self.pos_embedding_2, self.pos_embedding_3]
+        # self.pos_embedding_layers = [self.pos_embedding_1, self.pos_embedding_2, self.pos_embedding_3]
 
         self.transformer_1 = Transformer(dim=dim_1, depth=self.enc_depth, heads=4, dim_head=self.dim_head,
                                          mlp_dim=dim_1, dropout=0)
@@ -337,8 +336,8 @@ class cross_attention(torch.nn.Module):
         self.pos_embedding_decoder_2 = nn.Parameter(torch.randn(1, dim_2, 32, 32))
         self.pos_embedding_decoder_3 = nn.Parameter(torch.randn(1, dim_3, 16, 16))
 
-        self.pos_embedding_decoder_layers = [self.pos_embedding_decoder_1, self.pos_embedding_decoder_2,
-                                             self.pos_embedding_decoder_3]
+        # self.pos_embedding_decoder_layers = [self.pos_embedding_decoder_1, self.pos_embedding_decoder_2,
+        #                                      self.pos_embedding_decoder_3]
 
         self.conv_decode_1 = nn.Conv2d(256, 128, kernel_size=3, padding=1, bias=False)
         self.conv_decode_2 = nn.Conv2d(256, 128, kernel_size=3, padding=1, bias=False)
@@ -363,6 +362,9 @@ class cross_attention(torch.nn.Module):
             nn.ReLU(),
         )
 
+        # self.bn_x1 = nn.BatchNorm2d(256)
+        # self.bn_x2= nn.BatchNorm2d(256)
+
     def _forward_semantic_tokens(self, x, layer=None):
         b, c, h, w = x.shape
         spatial_attention = self.conv_tokens_layers[layer](x)
@@ -374,14 +376,27 @@ class cross_attention(torch.nn.Module):
 
     def _forward_transformer(self, x, layer):
         if self.with_pos:
-            x += self.pos_embedding_layers[layer]
+            if layer == 0:
+                x += self.pos_embedding_1
+            elif layer == 1:
+                x += self.pos_embedding_2
+            elif layer == 2:
+                x += self.pos_embedding_3
+
+            # x += self.pos_embedding_layers[layer]
         x = self.transformer_layers[layer](x)
         return x
 
     def _forward_transformer_decoder(self, x, m, layer):
         b, c, h, w = x.shape
         if self.with_decoder_pos == 'learned':
-            x = x + self.pos_embedding_decoder_layers[layer]
+            if layer == 0:
+                x += self.pos_embedding_decoder_1
+            elif layer == 1:
+                x += self.pos_embedding_decoder_2
+            elif layer == 2:
+                x += self.pos_embedding_decoder_3
+            # x = x + self.pos_embedding_decoder_layers[layer]
         x = rearrange(x, 'b c h w -> b (h w) c')
         x = self.transformer_decoder_layers[layer](x, m)
         x = rearrange(x, 'b (h w) c -> b c h w', h=h)
@@ -410,6 +425,10 @@ class cross_attention(torch.nn.Module):
         return x
 
     def forward(self, x1, x2):
+
+        # x1 = self.bn_x1(x1)
+        # x2 = self.bn_x2(x2)
+
         x1_256_64, x1_512_32, x1_1024_16 = self.resnet(x1)
         x2_256_64, x2_512_32, x2_1024_16 = self.resnet(x2)
 
@@ -422,14 +441,18 @@ class cross_attention(torch.nn.Module):
         x1 = x1_1024_16
         x2 = x2_1024_16
         out_2 = self._forward_trans_module(x1, x2, 2)
-        out_2 = self.upsamplex2(out_2)
+        out_2 = self.upsamplex2(out_2.float())
+        out_2 = out_2.to(dtype=torch.bfloat16)
+
+
         # print("out_2 : ",out_2.shape)
 
         x1 = x1_512_32
         x2 = x2_512_32
         out_1 = self._forward_trans_module(x1, x2, 1)
         out_1 = out_1 + out_2
-        out_1 = self.upsamplex2(out_1)
+        out_1 = self.upsamplex2(out_1.float())
+        out_1 = out_1.to(dtype=torch.bfloat16)
         # print("out_1 : ",out_1.shape)
 
         x1 = x1_256_64

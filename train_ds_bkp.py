@@ -15,11 +15,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model.LISA import LISAForCausalLM
 from model.llava import conversation as conversation_lib
-from utils.dataset import HybridDataset, ValDataset, collate_fn,collate_fn3
+from utils.dataset import HybridDataset, ValDataset, collate_fn
 from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                          AverageMeter, ProgressMeter, Summary, dict_to_cuda,
                          intersectionAndUnionGPU)
-from utils.cd_dataset import Contrastive_CD_Dataset
 
 
 def parse_args(args):
@@ -61,8 +60,6 @@ def parse_args(args):
     parser.add_argument("--reason_seg_data", default="ReasonSeg|train", type=str)
     parser.add_argument("--val_dataset", default="ReasonSeg|val", type=str)
     parser.add_argument("--dataset_dir", default="./dataset", type=str)
-    parser.add_argument("--constrative_dataset_dir", default="./cd-datasets", type=str)
-    parser.add_argument("--constrative", action="store_true", default=True)
     parser.add_argument("--log_base_dir", default="./runs", type=str)
     parser.add_argument("--exp_name", default="lisa", type=str)
     parser.add_argument("--epochs", default=10, type=int)
@@ -145,7 +142,6 @@ def main(args):
         "vision_pretrained": args.vision_pretrained,
         "vision_tower": args.vision_tower,
         "use_mm_start_end": args.use_mm_start_end,
-        "constrative": args.constrative,
     }
     torch_dtype = torch.float32
     if args.precision == "bf16":
@@ -165,11 +161,6 @@ def main(args):
     model.get_model().initialize_vision_modules(model.get_model().config)
     vision_tower = model.get_model().get_vision_tower()
     vision_tower.to(dtype=torch_dtype, device=args.local_rank)
-
-    if args.constrative:
-        model.cross_attn.to(dtype=torch_dtype, device=args.local_rank)
-        model.cross_attn.load_state_dict(torch.load("./model/wt_init_crossattn.pth"))
-
     model.get_model().initialize_lisa_modules(model.get_model().config)
 
     for p in vision_tower.parameters():
@@ -237,69 +228,28 @@ def main(args):
 
     world_size = torch.cuda.device_count()
     args.distributed = world_size > 1
-
-    if not args.constrative:
-        train_dataset = HybridDataset(
-            args.dataset_dir,
-            tokenizer,
-            args.vision_tower,
-            samples_per_epoch=args.batch_size
-            * args.grad_accumulation_steps
-            * args.steps_per_epoch
-            * world_size,
-            precision=args.precision,
-            image_size=args.image_size,
-            num_classes_per_sample=args.num_classes_per_sample,
-            exclude_val=args.exclude_val,
-            dataset=args.dataset,
-            sample_rate=[float(x) for x in args.sample_rates.split(",")],
-            sem_seg_data=args.sem_seg_data,
-            refer_seg_data=args.refer_seg_data,
-            vqa_data=args.vqa_data,
-            reason_seg_data=args.reason_seg_data,
-            explanatory=args.explanatory,
-        )
-    else:
-        train_dataset = HybridDataset(
-            args.constrative_dataset_dir,
-            tokenizer,
-            args.vision_tower,
-            samples_per_epoch=args.batch_size
-                              * args.grad_accumulation_steps
-                              * args.steps_per_epoch
-                              * world_size,
-            precision=args.precision,
-            image_size=args.image_size,
-            num_classes_per_sample=args.num_classes_per_sample,
-            exclude_val=args.exclude_val,
-            dataset=args.dataset,
-            sample_rate=[1],
-            sem_seg_data=args.sem_seg_data,
-            refer_seg_data=args.refer_seg_data,
-            vqa_data=args.vqa_data,
-            reason_seg_data=args.reason_seg_data,
-            explanatory=args.explanatory,
-        )
-        # train_dataset = Contrastive_CD_Dataset(
-        #     args.constrative_dataset_dir,
-        #     tokenizer,
-        #     args.vision_tower,
-        #     samples_per_epoch=args.batch_size
-        #                       * args.grad_accumulation_steps
-        #                       * args.steps_per_epoch
-        #                       * world_size,
-        #     precision=args.precision,
-        #     image_size=args.image_size,
-        #     num_classes_per_sample=args.num_classes_per_sample,
-        # )
+    train_dataset = HybridDataset(
+        args.dataset_dir,
+        tokenizer,
+        args.vision_tower,
+        samples_per_epoch=args.batch_size
+        * args.grad_accumulation_steps
+        * args.steps_per_epoch
+        * world_size,
+        precision=args.precision,
+        image_size=args.image_size,
+        num_classes_per_sample=args.num_classes_per_sample,
+        exclude_val=args.exclude_val,
+        dataset=args.dataset,
+        sample_rate=[float(x) for x in args.sample_rates.split(",")],
+        sem_seg_data=args.sem_seg_data,
+        refer_seg_data=args.refer_seg_data,
+        vqa_data=args.vqa_data,
+        reason_seg_data=args.reason_seg_data,
+        explanatory=args.explanatory,
+    )
 
     if args.no_eval == False:
-        # print('-------------------------------------------------')
-        # print("args.dataset_dir : ",args.dataset_dir)
-        # print("args.vision_tower : ", args.vision_tower)
-        # print("args.val_dataset : ", args.val_dataset)
-        # print("args.image_size : ", args.image_size)
-        # print('-------------------------------------------------')
         val_dataset = ValDataset(
             args.dataset_dir,
             tokenizer,
@@ -356,7 +306,7 @@ def main(args):
         model_parameters=model.parameters(),
         training_data=train_dataset,
         collate_fn=partial(
-            collate_fn3,
+            collate_fn,
             tokenizer=tokenizer,
             conv_type=args.conv_type,
             use_mm_start_end=args.use_mm_start_end,
@@ -387,11 +337,6 @@ def main(args):
     # validation dataset
     if val_dataset is not None:
         assert args.val_batch_size == 1
-
-        # print('-----------------------------')
-        # print("args.dataset_dir : ",args.dataset_dir)
-        # print('-----------------------------')
-
         val_sampler = torch.utils.data.distributed.DistributedSampler(
             val_dataset, shuffle=False, drop_last=False
         )
@@ -403,7 +348,7 @@ def main(args):
             pin_memory=False,
             sampler=val_sampler,
             collate_fn=partial(
-                collate_fn3,
+                collate_fn,
                 tokenizer=tokenizer,
                 conv_type=args.conv_type,
                 use_mm_start_end=args.use_mm_start_end,
