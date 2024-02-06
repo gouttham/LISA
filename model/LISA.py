@@ -196,7 +196,7 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
             image_embeddings1 = self.get_visual_embs(images1)
             image_embeddings2 = self.get_visual_embs(images2)
             image_embeddings = self.cross_attn(image_embeddings1, image_embeddings2)
-            # print(image_embeddings.shape)
+            # print("image_embeddings : ",image_embeddings.shape)
             # print(torch.max(image_embeddings))
             # print(torch.min(image_embeddings))
         else:
@@ -222,7 +222,7 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
             n_batch = 1
             length = input_ids.shape[0]
             # print('``````````````````````````````````````````````````````````````````')
-            # print(images_clip.shape)
+            # print("images_clip : ",images_clip.shape)
             # print('``````````````````````````````````````````````````````````````````')
             assert images_clip.shape[0] == 1
             images_clip_extend = images_clip.expand(length, -1, -1, -1).contiguous()
@@ -246,6 +246,9 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
             output = None
 
         else:
+            # print('``````````````````````````````````````````````````````````````````')
+            # print("Else part")
+            # print('``````````````````````````````````````````````````````````````````')
             images_clip_list = []
             for i in range(len(offset) - 1):
                 start_i, end_i = offset[i], offset[i + 1]

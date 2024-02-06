@@ -300,13 +300,36 @@ def main(args):
         # print("args.val_dataset : ", args.val_dataset)
         # print("args.image_size : ", args.image_size)
         # print('-------------------------------------------------')
-        val_dataset = ValDataset(
-            args.dataset_dir,
-            tokenizer,
-            args.vision_tower,
-            args.val_dataset,
-            args.image_size,
-        )
+
+        if not args.constrative:
+            val_dataset = ValDataset(
+                args.dataset_dir,
+                tokenizer,
+                args.vision_tower,
+                args.val_dataset,
+                args.image_size,
+            )
+        else:
+            val_dataset = HybridDataset(
+                args.constrative_dataset_dir,
+                tokenizer,
+                args.vision_tower,
+                samples_per_epoch=args.val_batch_size
+                                  * args.grad_accumulation_steps
+                                  * args.steps_per_epoch
+                                  * world_size,
+                precision=args.precision,
+                image_size=args.image_size,
+                num_classes_per_sample=args.num_classes_per_sample,
+                exclude_val=True,
+                dataset=args.dataset,
+                sample_rate=[1],
+                sem_seg_data=args.sem_seg_data,
+                refer_seg_data=args.refer_seg_data,
+                vqa_data=args.vqa_data,
+                reason_seg_data=args.reason_seg_data,
+                explanatory=args.explanatory)
+
         print(
             f"Training with {len(train_dataset)} examples and validating with {len(val_dataset)} examples."
         )
@@ -388,10 +411,6 @@ def main(args):
     if val_dataset is not None:
         assert args.val_batch_size == 1
 
-        # print('-----------------------------')
-        # print("args.dataset_dir : ",args.dataset_dir)
-        # print('-----------------------------')
-
         val_sampler = torch.utils.data.distributed.DistributedSampler(
             val_dataset, shuffle=False, drop_last=False
         )
@@ -431,6 +450,7 @@ def main(args):
         )
 
         if args.no_eval == False:
+            # print("****** validation flow *******")
             giou, ciou = validate(val_loader, model_engine, epoch, writer, args)
             is_best = giou > best_score
             best_score = max(giou, best_score)
@@ -594,7 +614,7 @@ def validate(val_loader, model_engine, epoch, writer, args):
         else:
             input_dict["images"] = input_dict["images"].float()
             input_dict["images_clip"] = input_dict["images_clip"].float()
-
+        input_dict['inference'] = True
         with torch.no_grad():
             output_dict = model_engine(**input_dict)
 
