@@ -264,10 +264,7 @@ def main(args):
             args.constrative_dataset_dir,
             tokenizer,
             args.vision_tower,
-            samples_per_epoch=args.batch_size
-                              * args.grad_accumulation_steps
-                              * args.steps_per_epoch
-                              * world_size,
+            samples_per_epoch=10000,
             precision=args.precision,
             image_size=args.image_size,
             num_classes_per_sample=args.num_classes_per_sample,
@@ -280,6 +277,8 @@ def main(args):
             reason_seg_data=args.reason_seg_data,
             explanatory=args.explanatory,
         )
+        args.steps_per_epoch = round(train_dataset.__len__()/(args.batch_size*world_size))
+
         # train_dataset = Contrastive_CD_Dataset(
         #     args.constrative_dataset_dir,
         #     tokenizer,
@@ -314,10 +313,7 @@ def main(args):
                 args.constrative_dataset_dir,
                 tokenizer,
                 args.vision_tower,
-                samples_per_epoch=args.val_batch_size
-                                  * args.grad_accumulation_steps
-                                  * args.steps_per_epoch
-                                  * world_size,
+                samples_per_epoch=10000,
                 precision=args.precision,
                 image_size=args.image_size,
                 num_classes_per_sample=args.num_classes_per_sample,
@@ -451,6 +447,7 @@ def main(args):
 
         if args.no_eval == False:
             # print("****** validation flow *******")
+
             giou, ciou = validate(val_loader, model_engine, epoch, writer, args)
             is_best = giou > best_score
             best_score = max(giou, best_score)
@@ -508,42 +505,40 @@ def train(
     # switch to train mode
     model.train()
     end = time.time()
-    for global_step in range(args.steps_per_epoch):
-        for i in range(args.grad_accumulation_steps):
-            try:
-                input_dict = next(train_iter)
-            except:
-                train_iter = iter(train_loader)
-                input_dict = next(train_iter)
 
-            data_time.update(time.time() - end)
-            input_dict = dict_to_cuda(input_dict)
+    for global_step,input_dict in enumerate(train_loader):
 
-            if args.precision == "fp16":
-                input_dict["images"] = input_dict["images"].half()
-                input_dict["images_clip"] = input_dict["images_clip"].half()
-            elif args.precision == "bf16":
-                input_dict["images"] = input_dict["images"].bfloat16()
-                input_dict["images_clip"] = input_dict["images_clip"].bfloat16()
-            else:
-                input_dict["images"] = input_dict["images"].float()
-                input_dict["images_clip"] = input_dict["images_clip"].float()
 
-            output_dict = model(**input_dict)
+        data_time.update(time.time() - end)
+        if input_dict ==None:
+            break
+        input_dict = dict_to_cuda(input_dict)
 
-            loss = output_dict["loss"]
-            ce_loss = output_dict["ce_loss"]
-            mask_bce_loss = output_dict["mask_bce_loss"]
-            mask_dice_loss = output_dict["mask_dice_loss"]
-            mask_loss = output_dict["mask_loss"]
+        if args.precision == "fp16":
+            input_dict["images"] = input_dict["images"].half()
+            input_dict["images_clip"] = input_dict["images_clip"].half()
+        elif args.precision == "bf16":
+            input_dict["images"] = input_dict["images"].bfloat16()
+            input_dict["images_clip"] = input_dict["images_clip"].bfloat16()
+        else:
+            input_dict["images"] = input_dict["images"].float()
+            input_dict["images_clip"] = input_dict["images_clip"].float()
 
-            losses.update(loss.item(), input_dict["images"].size(0))
-            ce_losses.update(ce_loss.item(), input_dict["images"].size(0))
-            mask_bce_losses.update(mask_bce_loss.item(), input_dict["images"].size(0))
-            mask_dice_losses.update(mask_dice_loss.item(), input_dict["images"].size(0))
-            mask_losses.update(mask_loss.item(), input_dict["images"].size(0))
-            model.backward(loss)
-            model.step()
+        output_dict = model(**input_dict)
+
+        loss = output_dict["loss"]
+        ce_loss = output_dict["ce_loss"]
+        mask_bce_loss = output_dict["mask_bce_loss"]
+        mask_dice_loss = output_dict["mask_dice_loss"]
+        mask_loss = output_dict["mask_loss"]
+
+        losses.update(loss.item(), input_dict["images"].size(0))
+        ce_losses.update(ce_loss.item(), input_dict["images"].size(0))
+        mask_bce_losses.update(mask_bce_loss.item(), input_dict["images"].size(0))
+        mask_dice_losses.update(mask_dice_loss.item(), input_dict["images"].size(0))
+        mask_losses.update(mask_loss.item(), input_dict["images"].size(0))
+        model.backward(loss)
+        model.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -648,7 +643,7 @@ def validate(val_loader, model_engine, epoch, writer, args):
 
     if args.local_rank == 0:
         writer.add_scalar("val/giou", giou, epoch)
-        writer.add_scalar("val/giou", ciou, epoch)
+        writer.add_scalar("val/ciou", ciou, epoch)
         print("giou: {:.4f}, ciou: {:.4f}".format(giou, ciou))
 
     return giou, ciou

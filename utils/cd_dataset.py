@@ -532,6 +532,7 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         self.data2list = {}
         self.data2classes = {}
 
+        self.sem_seg_bkp = sem_seg_data.split("||")
         self.sem_seg_datas = sem_seg_data.split("||")
         self.ds_len = 0
         # self.sem_seg_datas = self.sem_seg_datas.replace("xbd", "xbd_pre||xbd_post").split("||")
@@ -543,6 +544,30 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
             self.data2list[ds] = (pre_images, post_images, labels)
             self.data2classes[ds] = classes
             self.ds_len += len(pre_images)
+
+
+
+        self.selector = {}
+        total_cnt = {}
+        ctr = 0
+        for ech_ds in self.data2list:
+            c_list = list(range(len(self.data2list[ech_ds][0])))
+            self.selector[ech_ds] = c_list
+            total_cnt[ech_ds] = len(c_list)
+            ctr += len(c_list)
+        print(total_cnt,ctr,self.ds_len)
+
+
+        temp_dict = dict(self.selector)
+
+        self.idx_selector_map = {}
+        for ech in range(ctr):
+            sel_key = list(temp_dict.keys())[0]
+            cur_idx = temp_dict[sel_key].pop()
+            self.idx_selector_map[ech] = (sel_key,cur_idx)
+            if len(temp_dict[sel_key]) == 0:
+                del temp_dict[sel_key]
+
 
     def __len__(self):
         return self.ds_len
@@ -585,17 +610,48 @@ class Contrastive_CD_Dataset(torch.utils.data.Dataset):
         
         
     def __getitem__(self, idx):
-        ds = random.randint(0, len(self.sem_seg_datas) - 1)
-        ds = self.sem_seg_datas[ds]
+
+        # ds_idx = random.randint(0, len(self.sem_seg_datas) - 1)
+        # ds = self.sem_seg_datas[ds_idx]
+
+        # print(self.selector)
+        # while len(self.selector[ds]) <= 0:
+        #     print(self.sem_seg_datas , ds, ds_idx)
+        #     self.sem_seg_datas.pop(ds_idx)
+        #     print(self.sem_seg_datas)
+        #     if len(self.sem_seg_datas) ==0:
+        #         self.__init_next_epoch__()
+        #         self.sem_seg_datas = self.sem_seg_bkp
+        #         0/0
+        #         return None
+        #
+        #     ds_idx = random.randint(0, len(self.sem_seg_datas) - 1)
+        #     ds = self.sem_seg_datas[ds_idx]
+
+        ds, idx = self.idx_selector_map[idx]
+
 
         pre_images, post_images, labels = self.data2list[ds]
         assert(len(pre_images) == len(post_images))
 
-        idx = random.randint(0, len(pre_images) - 1)
+        # idx = random.randint(0, len(pre_images) - 1)
+
+
+        # idx = self.selector[ds].pop()
+
+        # ctr = 0
+        # for ech in self.selector:
+        #     ctr += len(self.selector[ech])
+        # print(ctr)
 
         # loading in the pre and post images
         pre_image_path, pre_image, pre_image_clip, pre_resize = self.load_pre_post_img(pre_images, idx, ds)
         post_image_path, post_image, post_image_clip, post_resize = self.load_pre_post_img(post_images, idx, ds)
+
+        # print(idx,pre_image_path)
+
+
+
 
         if self.debug:
             print(ds, pre_image_path)

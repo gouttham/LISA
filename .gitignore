@@ -6,3 +6,6 @@
 /runs
 /vis
 /data2
+/model/bkp_wt_init_crossattn.pth
+/cd-datasets
+/.ipynb_checkpoints

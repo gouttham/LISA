@@ -599,13 +599,19 @@ class HybridDataset(torch.utils.data.Dataset):
                 )
 
     def __len__(self):
-        return self.samples_per_epoch
+        total = 0
+        for ech in self.all_datasets:
+            total += ech.__len__()
+        return total
+
+        # return self.samples_per_epoch
 
     def __getitem__(self, idx):
         ind = np.random.choice(list(range(len(self.datasets))), p=self.sample_rate)
         data = self.all_datasets[ind]
         inference = False
-        return *data[0], inference
+        return *data[idx], inference
+
 
 
 class ValDataset(torch.utils.data.Dataset):
