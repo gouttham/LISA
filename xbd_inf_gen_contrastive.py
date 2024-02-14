@@ -307,7 +307,7 @@ def main(args):
 
             print("input_ids : ,",input_ids)
             output_ids, pred_masks = model.evaluate(
-                (pre_image_clip, post_image_clip),
+                post_image_clip,
                 (pre_image, post_image),
                 input_ids,
                 resize_list,
@@ -342,7 +342,7 @@ def main(args):
         save_path_colored_prompts = "{}/{}_colored_mask_key_{}.txt".format(
             args.vis_save_path, post_img_path.split("/")[-1].split(".")[0], i
         )
-        
+
         cv2.imwrite(save_path, mask)
         print("{} has been saved.".format(save_path))
 

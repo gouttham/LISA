@@ -380,6 +380,7 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
         tokenizer=None,
     ):
         with torch.no_grad():
+            images1, images2 = images
             outputs = self.generate(
                 images=images_clip,
                 input_ids=input_ids,
@@ -432,7 +433,10 @@ class LISAForCausalLM(LlavaLlamaForCausalLM):
                 pred_embeddings_.append(pred_embeddings[start_i:end_i])
             pred_embeddings = pred_embeddings_
 
-            image_embeddings = self.get_visual_embs(images)
+            # image_embeddings = self.get_visual_embs(images)
+            image_embeddings1 = self.get_visual_embs(images1)
+            image_embeddings2 = self.get_visual_embs(images2)
+            image_embeddings = self.cross_attn(image_embeddings1, image_embeddings2)
 
             multimask_output = False
             pred_masks = []
